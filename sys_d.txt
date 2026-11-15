@@ -1,0 +1,928 @@
+
+CREATE DATABASE LibraryDB;
+USE LibraryDB;
+
+-- 1. Publisher details
+CREATE TABLE PUBLISHER (
+    Pub_id INT PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL,
+    Address VARCHAR(200),
+    Phone VARCHAR(15)
+);
+
+-- 2. Book details
+CREATE TABLE BOOK (
+    Book_id INT PRIMARY KEY,
+    Title VARCHAR(150) NOT NULL,
+    Pub_id INT,
+    Pub_Year YEAR,
+    FOREIGN KEY (Pub_id)
+        REFERENCES PUBLISHER(Pub_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
+);
+
+-- 3. Authors of books
+CREATE TABLE BOOK_AUTHORS (
+    Book_id INT,
+    Author_Name VARCHAR(100),
+    PRIMARY KEY (Book_id, Author_Name),
+    FOREIGN KEY (Book_id)
+        REFERENCES BOOK(Book_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+-- 4. Library branches
+CREATE TABLE LIBRARY_BRANCH (
+    Branch_id INT PRIMARY KEY,
+    Branch_Name VARCHAR(100) NOT NULL,
+    Address VARCHAR(200)
+);
+
+-- 5. Copies available at each branch
+CREATE TABLE BOOK_COPIES (
+    Book_id INT,
+    Branch_id INT,
+    No_of_Copies INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (Book_id, Branch_id),
+    FOREIGN KEY (Book_id)
+        REFERENCES BOOK(Book_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    FOREIGN KEY (Branch_id)
+        REFERENCES LIBRARY_BRANCH(Branch_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CHECK (No_of_Copies >= 0)
+);
+
+-- 6. Book lending transactions
+CREATE TABLE BOOK_LENDING (
+    Book_id INT,
+    Branch_id INT,
+    Card_No INT,
+    Date_Out DATE,
+    Due_Date DATE,
+    PRIMARY KEY (Book_id, Branch_id, Card_No, Date_Out),
+    FOREIGN KEY (Book_id, Branch_id)
+        REFERENCES BOOK_COPIES(Book_id, Branch_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+
+---------------------
+
+
+-- Insert publishers
+INSERT INTO PUBLISHER VALUES
+(1, 'Pearson', 'New Delhi', '9876500001'),
+(2, 'McGraw Hill', 'Bengaluru', '9876500002'),
+(3, 'OReilly Media', 'Mumbai', '9876500003'),
+(4, 'Prentice Hall', 'Chennai', '9876500004');
+
+-- Insert books
+INSERT INTO BOOK VALUES
+(101, 'Database Systems', 1, 2018),
+(102, 'Operating Systems', 2, 2019),
+(103, 'Computer Networks', 1, 2017),
+(104, 'Machine Learning', 3, 2020),
+(105, 'Data Structures', 4, 2019),
+(106, 'Python Programming', 3, 2018),
+(107, 'Artificial Intelligence', 2, 2021),
+(108, 'Web Development', 4, 2016);
+
+-- Insert book authors
+INSERT INTO BOOK_AUTHORS VALUES
+(101, 'Raghu Ramakrishnan'),
+(101, 'Johannes Gehrke'),
+(102, 'Abraham Silberschatz'),
+(103, 'Andrew Tanenbaum'),
+(104, 'Ethem Alpaydin'),
+(105, 'Mark Allen Weiss'),
+(106, 'Eric Matthes'),
+(107, 'Stuart Russell'),
+(107, 'Peter Norvig'),
+(108, 'Jon Duckett');
+
+-- Insert library branches
+INSERT INTO LIBRARY_BRANCH VALUES
+(1, 'Central Library', 'Bengaluru'),
+(2, 'Science Library', 'Mysuru'),
+(3, 'Engineering Library', 'Mangaluru');
+
+-- Insert book copies at each branch
+INSERT INTO BOOK_COPIES VALUES
+(101, 1, 10),
+(101, 2, 5),
+(102, 1, 8),
+(102, 2, 4),
+(103, 1, 6),
+(103, 3, 3),
+(104, 1, 7),
+(104, 3, 5),
+(105, 2, 8),
+(105, 3, 4),
+(106, 1, 5),
+(106, 2, 3),
+(107, 1, 6),
+(107, 3, 2),
+(108, 2, 7);
+
+-- Insert book lending records
+INSERT INTO BOOK_LENDING VALUES
+(101, 1, 1001, '2019-01-10', '2019-01-25'),
+(102, 1, 1001, '2019-02-05', '2019-02-20'),
+(103, 1, 1001, '2019-03-10', '2019-03-25'),
+(104, 1, 1001, '2019-04-01', '2019-04-16'),
+
+(101, 2, 1002, '2019-01-15', '2019-01-30'),
+(102, 2, 1002, '2019-02-10', '2019-02-25'),
+(105, 2, 1002, '2019-05-05', '2019-05-20'),
+
+(103, 1, 1003, '2019-03-01', '2019-03-16'),
+(104, 3, 1003, '2019-04-10', '2019-04-25'),
+
+(105, 3, 1004, '2019-06-01', '2019-06-16'),
+(106, 1, 1004, '2019-06-05', '2019-06-20');
+
+
+
+
+--------------------------------------------
+
+Q1.
+
+SELECT
+    B.Book_id,
+    B.Title,
+    P.Name AS Publisher_Name,
+    A.Author_Name,
+    LB.Branch_Name,
+    BC.No_of_Copies
+FROM BOOK B
+JOIN PUBLISHER P
+    ON B.Pub_id = P.Pub_id
+LEFT JOIN BOOK_AUTHORS A
+    ON B.Book_id = A.Book_id
+LEFT JOIN BOOK_COPIES BC
+    ON B.Book_id = BC.Book_id
+LEFT JOIN LIBRARY_BRANCH LB
+    ON BC.Branch_id = LB.Branch_id
+ORDER BY B.Book_id, LB.Branch_id, A.Author_Name;
+
+
+Q2.
+
+
+SELECT *, COUNT(*) AS C FROM BOOK_LENDING
+WHERE Date_Out >= '2019-01-01' AND Date_Out <= '2019-06-01'
+GROUP BY Card_No
+HAVING C > 3;
+
+
+Q3.
+
+DELETE FROM BOOK 
+WHERE Book_id = 106;
+
+Q4.
+CREATE TABLE BOOKS(
+BOOK_ID INT,
+TITLE VARCHAR(100),
+PUB_YEAR INT
+)
+PARTITION BY RANGE(pub_year) (
+PARTITION p_before_2020 VALUES LESSTHAN (2020),
+PARTITION p_2020_2024 VALUES LESSTHAN (2025),
+PARTITION p_2025_onwards VALUES LESS THAN MAXVALUE
+);
+INSERT INTO BOOKS(BOOK_ID,TITLE,PUB_YEAR) VALUES
+(1, 'JAVA BASICS', 2018),
+(2, 'PYTHONGUIDE', 2020),
+(3, 'SQL MASTERY', 2022),
+(4, 'C PROGRAMMING',2019),
+(5, 'WEB DEVELOPMENT',2023);
+
+
+Q5.
+
+
+
+CREATE VIEW AVAILABLE_BOOKS AS
+SELECT
+    B.Book_id,
+    B.Title,
+    LB.Branch_Name,
+    BC.No_of_Copies
+FROM BOOK B
+JOIN BOOK_COPIES BC
+    ON B.Book_id = BC.Book_id
+JOIN LIBRARY_BRANCH LB
+    ON BC.Branch_id = LB.Branch_id;
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------
+
+
+CREATE DATABASE Sales_Order;
+USE Sales_Order;
+
+CREATE TABLE SALESMAN (
+    Salesman_id INT PRIMARY KEY,
+    Name VARCHAR(50),
+    City VARCHAR(50),
+    Commission DECIMAL(5,2)
+);
+
+CREATE TABLE CUSTOMER (
+    Customer_id INT PRIMARY KEY,
+    Cust_Name VARCHAR(50),
+    City VARCHAR(50),
+    Grade INT,
+    Salesman_id INT,
+    FOREIGN KEY (Salesman_id)
+        REFERENCES SALESMAN(Salesman_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE ORDERS (
+    Ord_No INT PRIMARY KEY,
+    Purchase_Amt DECIMAL(10,2),
+    Ord_Date DATE,
+    Customer_id INT,
+    Salesman_id INT,
+    FOREIGN KEY (Customer_id)
+        REFERENCES CUSTOMER(Customer_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (Salesman_id)
+        REFERENCES SALESMAN(Salesman_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+------------------------------------------------
+
+
+
+INSERT INTO SALESMAN VALUES
+(1000, 'James',   'Bangalore', 12.50),
+(1001, 'Ravi',    'Bangalore', 10.00),
+(1002, 'Priya',   'Mumbai',    15.00),
+(1003, 'Kiran',   'Delhi',     11.00),
+(1004, 'Sneha',   'Mumbai',    13.50),
+(1005, 'Arjun',   'Chennai',    9.00);
+
+
+INSERT INTO SALESMAN VALUES
+(1006, 'Meera',   'kolkata', 20.00);
+
+
+INSERT INTO CUSTOMER VALUES
+(1, 'Amit',   'Bangalore', 200, 1000),
+(2, 'Neha',   'Bangalore', 300, 1000),
+(3, 'Rahul',  'Mumbai',    150, 1001),
+(4, 'Priya',  'Delhi',     250, 1002),
+(5, 'Kavya',  'Mumbai',    350, 1002),
+(6, 'Vijay',  'Chennai',   100, 1003),
+(7, 'Anil',   'Bangalore', 400, 1004),
+(8, 'Divya',  'Delhi',     200, 1004);
+
+
+INSERT INTO ORDERS VALUES
+(5001, 1500.00, '2026-10-01', 1, 1000),
+(5002, 2500.00, '2026-10-01', 2, 1000),
+(5003,  800.00, '2026-10-02', 3, 1001),
+(5004, 3200.00, '2026-10-02', 4, 1002),
+(5005, 4500.00, '2026-10-03', 5, 1002),
+(5006, 1200.00, '2026-10-03', 6, 1003),
+(5007, 2700.00, '2026-10-04', 7, 1004),
+(5008, 1800.00, '2026-10-04', 8, 1004);
+
+
+---------------------------------------------------
+
+
+Q1.
+
+SELECT COUNT(*) AS Customer_Count
+FROM CUSTOMER
+WHERE Grade > (
+    SELECT AVG(Grade)
+    FROM CUSTOMER
+    WHERE City = 'Bangalore'
+);
+
+
+Q2.
+
+SELECT S.Salesman_id, S.Name, S.City, COUNT(C.Cust_id) AS Customer_Count
+FROM SALESMAN S
+JOIN CUSTOMER C
+    ON S.Salesman_id = C.Salesman_id
+GROUP BY S.Salesman_id, S.Name
+HAVING COUNT(C.Customer_id) > 1;
+
+
+Q3.
+
+SELECT S.Name, S.City,
+       'Has customers in city' AS Status
+FROM SALESMAN S
+WHERE EXISTS (
+    SELECT 1
+    FROM CUSTOMER C
+    WHERE C.City = S.City
+)
+
+UNION
+
+SELECT S.Name, S.City,
+       'No customers in city' AS Status
+FROM SALESMAN S
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM CUSTOMER C
+    WHERE C.City = S.City
+);
+
+
+Q4.
+
+CREATE VIEW Highest_Daily_Order AS
+SELECT
+    S.Salesman_id,
+    S.Name AS Salesman_Name,
+    C.Cust_Name,
+    O.Ord_Date,
+    O.Purchase_Amt
+FROM SALESMAN S
+JOIN ORDERS O
+    ON S.Salesman_id = O.Salesman_id
+JOIN CUSTOMER C
+    ON O.Customer_id = C.Customer_id
+WHERE O.Purchase_Amt = (
+    SELECT MAX(O2.Purchase_Amt)
+    FROM ORDERS O2
+    WHERE O2.Ord_Date = O.Ord_Date
+);
+
+Q5.
+
+DELETE FROM SALESMAN
+WHERE Salesman_id = 1000;
+
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------
+
+CREATE TABLE ACTOR (
+    Act_id INT PRIMARY KEY,
+    Act_Name VARCHAR(50),
+    Act_Gender CHAR(1)
+);
+
+CREATE TABLE DIRECTOR (
+    Dir_id INT PRIMARY KEY,
+    Dir_Name VARCHAR(50),
+    Dir_Phone VARCHAR(15)
+);
+
+CREATE TABLE MOVIES (
+    Mov_id INT PRIMARY KEY,
+    Mov_Title VARCHAR(100),
+    Mov_Year INT,
+    Mov_Lang VARCHAR(30),
+    Dir_id INT,
+    FOREIGN KEY (Dir_id) REFERENCES DIRECTOR(Dir_id)
+);
+
+CREATE TABLE MOVIE_CAST (
+    Act_id INT,
+    Mov_id INT,
+    Role VARCHAR(50),
+    PRIMARY KEY (Act_id, Mov_id),
+    FOREIGN KEY (Act_id) REFERENCES ACTOR(Act_id),
+    FOREIGN KEY (Mov_id) REFERENCES MOVIES(Mov_id)
+);
+
+CREATE TABLE RATING (
+    Mov_id INT PRIMARY KEY,
+    Rev_Stars INT,
+    FOREIGN KEY (Mov_id, Rev_Stars) REFERENCES MOVIES(Mov_id)
+);
+
+
+------------------------------------
+
+INSERT INTO ACTOR VALUES
+(1, 'Rahul', 'M'),
+(2, 'Priya', 'F'),
+(3, 'Arjun', 'M'),
+(4, 'Sneha', 'F'),
+(5, 'Kiran', 'M'),
+(6, 'Meera', 'F');
+
+
+INSERT INTO ACTOR VALUES
+(1, 'Rahul', 'M'),
+(2, 'Priya', 'F'),
+(3, 'Arjun', 'M'),
+(4, 'Sneha', 'F'),
+(5, 'Kiran', 'M'),
+(6, 'Meera', 'F');
+
+
+INSERT INTO DIRECTOR VALUES
+(1, 'ABCD', '9876543210'),
+(2, 'XYZ',  '9876543211'),
+(3, 'LMN',  '9876543212'),
+(4, 'PQRS', '9876543213'),
+(5, 'WXYZ', '9876543214');
+
+
+INSERT INTO MOVIES VALUES
+(101, 'Old Promise', 1998, 'English', 3),
+(102, 'City Lights', 2018, 'Kannada', 1),
+(103, 'Hidden Truth', 2020, 'English', 2),
+(104, 'Golden Road', 2005, 'Hindi', 1),
+(105, 'Silent River', 1995, 'Kannada', 2),
+(106, 'New Dawn', 2019, 'Hindi', 3),
+(107, 'Final Mission', 2022, 'English', 2);
+
+
+INSERT INTO MOVIE_CAST VALUES
+(1, 101, 'Hero'),
+(1, 102, 'Hero'),
+(2, 102, 'Heroine'),
+(2, 103, 'Heroine'),
+(3, 104, 'Hero'),
+(4, 105, 'Heroine'),
+(5, 106, 'Hero');
+
+
+INSERT INTO RATING VALUES        
+(101, 4),
+(102, 5),
+(103, 4),
+(104, 3),
+(105, 4),
+(107, 5);
+
+
+INSERT INTO RATING VALUES
+(101, 3);
+
+------------------- 
+
+SELECT M.Mov_id, M.Mov_Title FROM MOVIES M
+JOIN DIRECTOR D
+	ON D.Dir_id = M.Dir_id
+WHERE D.Dir_Name = 'ABCD';
+
+
+Q2.
+
+SELECT  DISTINCT M.Mov_Title FROM 
+MOVIES M
+JOIN MOVIE_CAST MC
+	ON M.Mov_id = MC.Mov_id
+WHERE MC.Act_id IN(
+	SELECT MC.Act_id
+	FROM MOVIE_CAST AS MC
+	GROUP BY MC.Act_id
+	HAVING COUNT(MC.Act_id) >= 2
+);
+
+
+Q3.
+
+SELECT DISTINCT A.Act_id, A.Act_Name
+FROM ACTOR A
+JOIN MOVIE_CAST MC1
+    ON A.Act_id = MC1.Act_id
+JOIN MOVIES M1
+    ON MC1.Mov_id = M1.Mov_id
+JOIN MOVIE_CAST MC2
+    ON A.Act_id = MC2.Act_id
+JOIN MOVIES M2
+    ON MC2.Mov_id = M2.Mov_id
+WHERE M1.Mov_Year < 2000
+  AND M2.Mov_Year > 2015;
+
+
+Q4.
+
+SELECT M.Mov_Title,
+       MAX(R.Rev_Stars) AS Highest_Stars
+FROM MOVIES M
+JOIN RATING R
+    ON M.Mov_id = R.Mov_id
+GROUP BY M.Mov_id, M.Mov_Title
+ORDER BY M.Mov_Title;
+
+Q5.
+UPDATE RATING R
+JOIN MOVIES M ON R.Mov_id = M.Mov_id
+JOIN DIRECTOR D ON D.Dir_id = M.Dir_id
+SET R.Rev_stars = 5
+WHERE D.Dir_Name = 'XYZ';
+--------------------------------------------------------------------------------
+
+CREATE DATABASE CollegeDB;
+USE CollegeDB;
+
+CREATE TABLE STUDENT (
+    USN VARCHAR(15) PRIMARY KEY,
+    SName VARCHAR(50) NOT NULL,
+    Address VARCHAR(100),
+    Phone VARCHAR(15),
+    Gender CHAR(1)
+);
+
+CREATE TABLE SEMSEC (
+    SSID INT PRIMARY KEY,
+    Sem INT NOT NULL,
+    Sec CHAR(1) NOT NULL,
+    UNIQUE (Sem, Sec)
+);
+
+CREATE TABLE CLASS (
+    USN VARCHAR(15),
+    SSID INT,
+    PRIMARY KEY (USN, SSID),
+    FOREIGN KEY (USN) REFERENCES STUDENT(USN)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (SSID) REFERENCES SEMSEC(SSID)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE SUBJECT (
+    Subcode VARCHAR(10) PRIMARY KEY,
+    Title VARCHAR(50) NOT NULL,
+    Sem INT NOT NULL,
+    Credits INT NOT NULL
+);
+
+CREATE TABLE IA_MARKS (
+    USN VARCHAR(15),
+    Subcode VARCHAR(10),
+    SSID INT,
+    Test1 DECIMAL(5,2),
+    Test2 DECIMAL(5,2),
+    Test3 DECIMAL(5,2),
+    FinalIA DECIMAL(5,2),
+    PRIMARY KEY (USN, Subcode, SSID),
+    FOREIGN KEY (USN) REFERENCES STUDENT(USN)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (Subcode) REFERENCES SUBJECT(Subcode)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (SSID) REFERENCES SEMSEC(SSID)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+------------------------------------------------------------
+
+
+INSERT INTO SEMSEC VALUES
+(1, 4, 'A'),
+(2, 4, 'B'),
+(3, 4, 'C'),
+(4, 8, 'A'),
+(5, 8, 'B'),
+(6, 8, 'C');
+
+
+INSERT INTO STUDENT VALUES
+('11XX1234', 'Arun',   'Bangalore', '9876500001', 'M'),
+('11XX1235', 'Priya',  'Mysore',    '9876500002', 'F'),
+('11XX1236', 'Kiran',  'Mandya',    '9876500003', 'M'),
+('11XX1237', 'Sneha',  'Bangalore', '9876500004', 'F'),
+('11XX1238', 'Rahul',  'Tumkur',    '9876500005', 'M'),
+('11XX1239', 'Divya',  'Mysore',    '9876500006', 'F'),
+('11XX1240', 'Vijay',  'Bangalore', '9876500007', 'M'),
+('11XX1241', 'Ananya', 'Mandya',    '9876500008', 'F'),
+('11XX1242', 'Rohan',  'Mysore',    '9876500009', 'M'),
+('11XX1243', 'Meena',  'Tumkur',    '9876500010', 'F'),
+('11XX1244', 'Suresh', 'Bangalore', '9876500011', 'M'),
+('11XX1245', 'Kavya',  'Mysore',    '9876500012', 'F');
+
+
+
+INSERT INTO CLASS VALUES
+('11XX1234', 3),
+('11XX1235', 3),
+('11XX1236', 1),
+('11XX1237', 1),
+('11XX1238', 2),
+('11XX1239', 2),
+('11XX1240', 4),
+('11XX1241', 4),
+('11XX1242', 5),
+('11XX1243', 5),
+('11XX1244', 6),
+('11XX1245', 6);
+
+
+INSERT INTO SUBJECT VALUES
+('CS401', 'DBMS',              4, 4),
+('CS402', 'Operating Systems', 4, 4),
+('CS403', 'Computer Networks', 4, 3),
+('CS801', 'Machine Learning',  8, 4),
+('CS802', 'Cloud Computing',   8, 3),
+('CS803', 'Deep Learning',     8, 4);
+
+
+
+INSERT INTO IA_MARKS
+(USN, Subcode, SSID, Test1, Test2, Test3, FinalIA)
+VALUES
+('11XX1234', 'CS401', 3, 18, 16, 20, NULL),
+('11XX1234', 'CS402', 3, 15, 14, 18, NULL),
+('11XX1235', 'CS401', 3, 10, 12, 14, NULL),
+('11XX1236', 'CS401', 1, 16, 18, 17, NULL),
+('11XX1238', 'CS401', 2, 14, 16, 15, NULL),
+('11XX1240', 'CS801', 4, 19, 18, 20, NULL),
+('11XX1241', 'CS801', 4, 13, 15, 14, NULL),
+('11XX1242', 'CS801', 5, 11, 12, 13, NULL),
+('11XX1244', 'CS801', 6, 16, 18, 17, NULL),
+('11XX1245', 'CS801', 6, 8, 9, 10, NULL);
+
+------------------------------------------------------------------------
+
+
+Q1.
+
+SELECT S.* FROM STUDENT S
+JOIN CLASS C 
+	ON C.USN = S.USN
+JOIN SEMSEC SC 
+	ON C.SSID = SC.SSID
+WHERE SC.Sem = 4 AND SC.Sec = 'C';
+ 
+
+Q2.
+
+SELECT 
+	SC.Sem, 
+	SC.Sec, 
+	SUM(CASE WHEN S.Gender = 'M' THEN 1 ELSE 0 END) AS Male_count,
+	SUM(CASE WHEN S.Gender = 'F' THEN 1 ELSE 0 END) AS Female_count
+FROM STUDENT S
+JOIN CLASS C
+	ON C.USN = S.USN
+JOIN SEMSEC SC
+	ON C.SSID = SC.SSID
+GROUP BY SC.Sem, SC.Sec
+ORDER BY SC.Sem, SC.Sec;
+
+
+Q3.
+
+CREATE VIEW Test1_View AS
+SELECT
+    I.USN,
+    S.Subcode,
+    S.Title,
+    I.Test1
+FROM IA_MARKS I
+JOIN SUBJECT S ON I.Subcode = S.Subcode
+WHERE I.USN = '11XX1234';
+
+
+Q4.
+
+UPDATE IA_MARKS
+SET FinalIA = round(
+	((Test1 + Test2 + Test3) - LEAST(Test1, Test2, Test3)) / 2 , 2
+);
+
+
+Q5.
+
+SELECT
+    	S.USN,
+    	S.SName,
+    	SS.Sem,
+    	SS.Sec,
+    	I.Subcode,
+    	I.FinalIA,
+	CASE
+        	WHEN I.FinalIA BETWEEN 17 AND 20 THEN 'Outstanding'
+       		WHEN I.FinalIA BETWEEN 12 AND 16 THEN 'Average'
+        	WHEN I.FinalIA < 12 THEN 'Weak'
+	END AS CAT
+FROM STUDENT S
+JOIN CLASS C ON S.USN = C.USN
+JOIN SEMSEC SS ON C.SSID = SS.SSID
+JOIN IA_MARKS I
+	ON I.USN = S.USN
+	AND I.SSID = SS.SSID
+WHERE SS.Sem = 8
+ 	AND SS.Sec IN ('A', 'B', 'C');
+
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+
+CREATE DATABASE CompanyDB;
+USE CompanyDB;
+
+CREATE TABLE EMPLOYEE (
+    SSN       VARCHAR(10) PRIMARY KEY,
+    Name      VARCHAR(50) NOT NULL,
+    Address   VARCHAR(100),
+    Sex       CHAR(1),
+    Salary    DECIMAL(12,2),
+    SuperSSN  VARCHAR(10),
+    DNo       INT,
+    FOREIGN KEY (SuperSSN) REFERENCES EMPLOYEE(SSN)
+);
+
+CREATE TABLE DEPARTMENT (
+    DNo          INT PRIMARY KEY,
+    DName        VARCHAR(50) NOT NULL UNIQUE,
+    MgrSSN       VARCHAR(10),
+    MgrStartDate DATE,
+    FOREIGN KEY (MgrSSN) REFERENCES EMPLOYEE(SSN)
+);
+
+CREATE TABLE DLOCATION (
+    DNo   INT,
+    DLoc  VARCHAR(50),
+    PRIMARY KEY (DNo, DLoc),
+    FOREIGN KEY (DNo) REFERENCES DEPARTMENT(DNo)
+);
+
+CREATE TABLE PROJECT (
+    PNo        INT PRIMARY KEY,
+    PName      VARCHAR(50) NOT NULL,
+    PLocation  VARCHAR(50),
+    DNo        INT NOT NULL,
+    FOREIGN KEY (DNo) REFERENCES DEPARTMENT(DNo)
+);
+
+CREATE TABLE WORKS_ON (
+    SSN    VARCHAR(10),
+    PNo    INT,
+    Hours  DECIMAL(5,2),
+    PRIMARY KEY (SSN, PNo),
+    FOREIGN KEY (SSN) REFERENCES EMPLOYEE(SSN),
+    FOREIGN KEY (PNo) REFERENCES PROJECT(PNo)
+);
+
+
+------------------------------
+
+INSERT INTO EMPLOYEE
+(SSN, Name, Address, Sex, Salary, SuperSSN, DNo)
+VALUES
+('E001', 'John Scott',   'Bangalore', 'M', 900000, NULL, 1),
+('E002', 'Mary Smith',   'Mysore',    'F', 750000, NULL, 2),
+('E003', 'David Brown',  'Bangalore', 'M', 650000, NULL, 3),
+('E004', 'Alice Jones',  'Chennai',   'F', 500000, NULL, 1),
+('E005', 'Robert Scott', 'Mysore',    'M', 620000, NULL, 2),
+('E006', 'Priya Kumar',  'Bangalore', 'F', 450000, NULL, 3),
+('E007', 'James Wilson', 'Mumbai',    'M', 700000, NULL, 1),
+('E008', 'Neha Sharma',  'Chennai',   'F', 610000, NULL, 2),
+('E009', 'Peter Davis',  'Mysore',    'M', 400000, NULL, 3),
+('E010', 'Sara Scott',   'Bangalore', 'F', 800000, NULL, 2);
+
+
+INSERT INTO DEPARTMENT
+(DNo, DName, MgrSSN, MgrStartDate)
+VALUES
+(1, 'Research',  'E001', '2024-01-01'),
+(2, 'Accounts',  'E002', '2023-06-15'),
+(3, 'IT',        'E003', '2024-03-01');
+
+UPDATE EMPLOYEE
+SET SuperSSN = CASE SSN
+    WHEN 'E002' THEN 'E001'
+    WHEN 'E003' THEN 'E001'
+    WHEN 'E004' THEN 'E001'
+    WHEN 'E005' THEN 'E002'
+    WHEN 'E006' THEN 'E003'
+    WHEN 'E007' THEN 'E001'
+    WHEN 'E008' THEN 'E002'
+    WHEN 'E009' THEN 'E003'
+    WHEN 'E010' THEN 'E002'
+    ELSE NULL
+END;
+
+INSERT INTO DLOCATION (DNo, DLoc)
+VALUES
+(1, 'Bangalore'),
+(1, 'Mumbai'),
+(2, 'Mysore'),
+(2, 'Bangalore'),
+(3, 'Chennai'),
+(3, 'Bangalore');
+
+
+INSERT INTO PROJECT
+(PNo, PName, PLocation, DNo)
+VALUES
+(101, 'IoT',       'Bangalore', 3),
+(102, 'Payroll',   'Mysore',    2),
+(103, 'AI System', 'Bangalore', 1),
+(104, 'Accounts',  'Chennai',   2),
+(105, 'Network',   'Bangalore', 3),
+(106, 'Research',  'Mumbai',    1);
+
+
+INSERT INTO WORKS_ON (SSN, PNo, Hours)
+VALUES
+('E001', 103, 10),
+('E001', 106,  5),
+('E002', 102, 15),
+('E002', 104, 10),
+('E003', 101, 20),
+('E003', 105, 10),
+('E004', 103, 15),
+('E004', 106,  5),
+('E005', 102, 20),
+('E005', 104, 10),
+('E006', 101, 15),
+('E006', 105, 10),
+('E007', 103, 10),
+('E007', 106, 10),
+('E008', 102, 10),
+('E008', 104, 15),
+('E009', 101, 10),
+('E009', 105, 15),
+('E010', 102, 10),
+('E010', 104, 10);
+
+
+----------------------------------------------
+
+Q1.
+
+SELECT P.PNo
+FROM PROJECT P
+JOIN WORKS_ON W ON W.PNo = P.PNo
+JOIN EMPLOYEE E ON E.SSN = W.SSN
+WHERE E.Name LIKE '% Scott'
+
+UNION
+
+SELECT P.PNo
+FROM PROJECT P
+JOIN DEPARTMENT D ON D.DNo = P.DNo
+JOIN EMPLOYEE E ON E.SSN = D.MgrSSN
+WHERE E.Name LIKE '% Scott';
+
+Q2.
+
+SELECT E.Name, P.PName, E.Salary * 1.10 AS New_Sal
+FROM EMPLOYEE E
+JOIN WORKS_ON W
+	ON W.SSN = E.SSN
+JOIN PROJECT P
+	ON P.PNo = W.PNo
+WHERE P.PName = 'IoT';
+
+Q3.
+
+SELECT 
+	MAX(E.Salary) AS Max_sal, 
+	MIN(E.Salary) AS min_sal, 
+	AVG(E.Salary) AS avg_sal 
+FROM EMPLOYEE E
+JOIN DEPARTMENT D 
+	ON D.DNo = E.DNo
+WHERE D.DName = 'Accounts';
+
+Q4.
+
+SELECT E.Name
+FROM EMPLOYEE E
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM PROJECT P
+    WHERE P.DNo = 5
+      AND NOT EXISTS (
+          SELECT 1
+          FROM WORKS_ON W
+          WHERE W.SSN = E.SSN
+            AND W.PNo = P.PNo
+      )
+);
+
+Q5.
+
+SELECT
+    DNo,
+    COUNT(CASE
+        WHEN Salary > 600000 THEN 1
+    END) AS High_Salary_Employees
+FROM EMPLOYEE
+GROUP BY DNo
+HAVING COUNT(SSN) > 3;
+
+
+
