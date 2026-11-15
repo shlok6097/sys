@@ -176,7 +176,7 @@ ORDER BY B.Book_id, LB.Branch_id, A.Author_Name;
 Q2.
 
 
-SELECT *, COUNT(*) AS C FROM BOOK_LENDING
+SELECT card_no, COUNT(*) AS C FROM BOOK_LENDING
 WHERE Date_Out >= '2019-01-01' AND Date_Out <= '2019-06-01'
 GROUP BY Card_No
 HAVING C > 3;
