@@ -1,0 +1,266 @@
+
+
+1.1
+select b.book_id ,b.title ,p.name , ba.auth_name,bc.copies
+from book b
+join book_authors ba on ba.book_id = b.book_id 
+join publisher p on p.pub_id = b.pub_id
+join book_copies bc on bc.book_id = b.book_id ;
+
+1.2
+
+select card_no, count(*) as c 
+from book_lending 
+where date_out in ('2019-01-01' , '2019-06-01')
+group by card_no
+having c >1;
+
+insert into book_lending values
+(3 ,2 ,101 , '2019-04-01',null);
+
+1.3 
+delete from book where book_id = 2;
+
+1.4 
+
+create table books (
+book_id int,
+name varchar(100),
+pub_year int
+)
+partition by range(pub_year)(
+partition p_less_then_2019 values less than (2020),
+partition p_less_then_2020 values less than (2025),
+partition p_greater_then_2025 values less than maxvalue
+);
+insert into books values
+(1,'a',2019),
+
+(1,'a',2020),
+
+(1,'a',2025),
+
+(1,'a',2026),
+
+(1,'a',2020),
+
+(1,'a',2023);
+
+
+
+
+1.5
+create view books_av as 
+select b.book_id , b.title , bc.copies
+from book_copies bc
+join book b on b.book_id = bc.book_id
+where copies > 1;
+
+
+2.1
+select c.name 
+from customer c
+where c.grade >=(
+select avg(grade) 
+from customer
+where city = 'Bengaluru'
+);
+
+2.2
+
+select s.name , s.number
+from salesman s
+join customer c on c.salesman_id = s.salesman_id
+group by s.name , s.number
+having count(c.cust_id) >=1;
+
+2.3
+
+
+select s.name as salesman_name , c.name,s.city as same_city
+from salesman s
+join customer c on c.salesman_id = s.salesman_id
+where s.city = c.city
+
+union
+
+
+select s.name as salesman_name , c.name,s.city as not_same_city
+from salesman s
+join customer c on c.salesman_id = s.salesman_id
+where s.city != c.city ;
+
+2.4
+
+create view high as 
+
+select max(o.amt) as maxp, c.name as cust_name ,s.name 
+from orders o 
+join customer c on c.cust_id = o.cust_id
+join salesman s on s.salesman_id = o.salesman_id
+group by s.name;
+
+2.5
+
+delete from salesman 
+where salesman_id = 1000;
+
+
+3.1
+
+select m.mov_title, d.dir_name
+from movies m
+join director d on d.dir_id = m.dir_id
+where d.dir_name = "abcd";f
+
+3.2
+
+select distinct m.mov_title
+from movies m
+join movie_cast mc on mc.mov_id = m.mov_id
+where mc.act_id in (
+select act_id 
+from movie_cast 
+group by act_id
+having count(distinct mov_id) >= 2 
+);
+
+3.3
+
+select distinct a.act_name
+from actor a
+join movie_cast mc on mc.act_id = a.act_id
+join movies m on m.mov_id = mc.mov_id
+where m.mov_year < 2000 or m.mov_year > 2015;
+
+3.4
+
+select m.mov_title , max(r.rev_start) as high
+from movies m
+join rating r on r.mov_id = m.mov_id
+group by m.mov_title 
+order by m.mov_title;
+
+3.5 
+
+update rating r 
+join movies m on m.mov_id = r.mov_id
+join director d on d.dir_id = m.dir_id
+set rev_start = 3
+where d.dir_name = 'xyz';
+
+
+4.1
+
+select * from student s
+join class c on c.usn = s.usn
+join semsec ss on ss.ssid = c.ssid
+where ss.sem = 4 and ss.sec = 'c';
+
+
+4.2 
+
+select ss.sem , ss.sec ,
+sum(case when s.gender = 'm' then 1 else 0 end) as male,
+sum(case when s.gender = 'f' then 1 else 0 end) as female
+from student s
+join class c on c.usn = s.usn
+join semsec ss on ss.ssid = c.ssid
+group by ss.sem , ss.sec
+order by ss.sem , ss.sec;
+
+4.3
+
+select s.title , i.test1
+from ia_marks i
+join subject s on s.subcode = i.subcode
+where i.usn = '11xx1234';
+
+4.4
+
+update ia_marks 
+set finalia = (test1+test2+test3 - least(test1,test2, test3))/2;
+
+4.5
+
+select i.finalia , i.usn,
+case 
+when finalia between 17 and 20 then 'a'
+when finalia between 12 and 16 then 'b'
+when finalia <12 then 'c'
+end as cat
+from ia_marks i
+join semsec ss on ss.ssid = i.ssid 
+where ss.sem =8 and ss.sec in ('a' , 'b' ,'c')
+order by ss.sec asc;
+
+
+5.1
+
+select e.name , p.pname 
+from employee e 
+join works_on w on w.ssn = e.ssn
+join project p on p.pno = w.pno
+where e.name like "% seo"
+
+union
+
+
+select e.name , p.pname 
+from project p 
+join department d on d.dno = p.dno
+join employee e on e.ssn = d.mgrssn
+where e.name like "%seo" ;
+
+
+5.2
+
+select e.name , e.salary* 1.10 as new_sal ,p.pname
+from employee e 
+join works_on w on w.ssn = e.ssn
+join project p on p.pno = w.pno
+where p.pname = 'iot';
+
+5.3
+
+select d.dname ,
+sum(e.salary) as total , 
+max(e.salary) as max_sal ,
+min(e.salary) as min_sal ,
+avg(e.salary) as avg_sal
+from employee e 
+join department d on d.dno = e.dno
+where d.dname = "accounts";
+
+5.4
+
+select e.name
+from employee e 
+where not exists (
+select * 
+from project p 
+where p.pno = 5
+and not exists (
+select * from 
+works_on w 
+where w.ssn = e.ssn 
+and p.pno = w.pno
+)
+);
+
+5.5
+
+
+select dno ,
+count(case when salary > 60000 then 1 end) as max_salary
+from employee e 
+group by dno 
+having count(ssn) >3;
+
+
+ 
+
+
+
+
+
