@@ -242,7 +242,7 @@ CREATE TABLE SALESMAN (
 
 CREATE TABLE CUSTOMER (
     Customer_id INT PRIMARY KEY,
-    Cust_Name VARCHAR(50),
+    Name VARCHAR(50),
     City VARCHAR(50),
     Grade INT,
     Salesman_id INT,
@@ -252,7 +252,7 @@ CREATE TABLE CUSTOMER (
 
 CREATE TABLE ORDERS (
     Ord_No INT PRIMARY KEY,
-    Purchase_Amt DECIMAL(10,2),
+     Amt DECIMAL(10,2),
     Ord_Date DATE,
     Customer_id INT,
     Salesman_id INT,
@@ -327,46 +327,28 @@ HAVING COUNT(C.Customer_id) > 1;
 
 Q3.
 
-SELECT S.Name, S.City,
-       'Has customers in city' AS Status
-FROM SALESMAN S
-WHERE EXISTS (
-    SELECT 1
-    FROM CUSTOMER C
-    WHERE C.City = S.City
-)
+select s.name as salesman_name , c.name,s.city as same_city
+from salesman s
+join customer c on c.salesman_id = s.salesman_id
+where s.city = c.city
 
-UNION
+union
 
-SELECT S.Name, S.City,
-       'No customers in city' AS Status
-FROM SALESMAN S
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM CUSTOMER C
-    WHERE C.City = S.City
-);
+
+select s.name as salesman_name , c.name,s.city as not_same_city
+from salesman s
+join customer c on c.salesman_id = s.salesman_id
+where s.city != c.city ;
 
 
 Q4.
+create view high_p_amt as 
 
-CREATE VIEW Highest_Daily_Order AS
-SELECT
-    S.Salesman_id,
-    S.Name AS Salesman_Name,
-    C.Cust_Name,
-    O.Ord_Date,
-    O.Purchase_Amt
-FROM SALESMAN S
-JOIN ORDERS O
-    ON S.Salesman_id = O.Salesman_id
-JOIN CUSTOMER C
-    ON O.Customer_id = C.Customer_id
-WHERE O.Purchase_Amt = (
-    SELECT MAX(O2.Purchase_Amt)
-    FROM ORDERS O2
-    WHERE O2.Ord_Date = O.Ord_Date
-);
+select max(o.amt) as maxp, c.name as cust_name ,s.name 
+from orders o 
+join customer c on c.cust_id = o.cust_id
+join salesman s on s.salesman_id = o.salesman_id
+group by s.name , c.name;
 
 Q5.
 
@@ -477,6 +459,7 @@ INSERT INTO RATING VALUES
 (101, 3);
 
 ------------------- 
+Q1.
 
 SELECT M.Mov_id, M.Mov_Title FROM MOVIES M
 JOIN DIRECTOR D
@@ -917,12 +900,10 @@ Q5.
 
 SELECT
     DNo,
-    COUNT(CASE
-        WHEN Salary > 600000 THEN 1
-    END) AS High_Salary_Employees
+    COUNT(CASE WHEN Salary > 600000 THEN 1 END) AS High_Salary_Employees
 FROM EMPLOYEE
 GROUP BY DNo
-HAVING COUNT(SSN) > 3;
+HAVING COUNT(SSN) > 5;
 
 
 
