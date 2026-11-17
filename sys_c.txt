@@ -69,14 +69,14 @@ const string gen = "10011";
 string crc(string data){
     int n = gen.length();
     string temp = data + string (n-1, '0');
-    for(int i =0 ; i<data.length()-n; i++){
+    for(int i =0 ; i<data.length(); i++){
         if(temp[i]=='1'){
             for(int j =0 ; j<n ; j++){
                 temp[i+j] = (temp[i+j] == gen[j]) ? '0':'1';
             }
         }
     }
-    return temp.substr(temp.length() - n-1);
+    return temp.substr(temp.length() );
 }
 
 int main() {
@@ -95,6 +95,7 @@ int main() {
             error = true;
             break;
         }
+
     }
 
     if(error) cout<<"error\n";
@@ -129,7 +130,7 @@ int main(){
         for(int i = 0 ; i<n ; i++){
             for(int j = 0;j<n; j++){
                 for(int v=0; v<n; v++){
-                    if(dis[i][v]+ cost[v][j] < dis[i][j]){
+                    if(dis[i][v] != INF && dis[v][j] != INF && dis[i][v]+ cost[v][j] < dis[i][j]){
                         dis[i][j]=dis[i][v]+ dis[v][j];
                     }
                 }
@@ -186,44 +187,38 @@ int main(){
         h[pos] = parity;
         cout<<"P"<<pos<<" = "<<parity<<"\n";
     }
+
     cout<<"Transmited frame \n";
-    for(int i = n; i>= 1 ; i--) cout<<h[i];
-    string recived ;
+    for(int i=n;i>=1;i--){
+        cout<<h[i];
+        sent+=char('0'+h[i]);
+    }
+
     cout<<"\nEnter the recived frame \n";
     cin>>recived;
-    int recv[40] = {0};
 
-    if(recived.length() != n){
-       cout<<"Invalid frame\n"; 
+    if(recived.length()!=sent.length()){
+        cout<<"Invalid frame\n";
         return 1;
-    } 
-    for(int i =1; i<= n  ; i++){
-        recv[i] = recived[n-i]-'0';
     }
-    int errorpos =0;
-    for(int p =0 ; p< r; p++){
-        int pos = 1<<p;
-        int parity = 0;
-        for(int i =1 ; i<= n; i++){
-            if(i&pos){
-                parity ^= recv[i];
-            }
+
+    int pos=-1;
+    for(int i=0;i<sent.length();i++)
+        if(sent[i]!=recived[i]){
+            pos=i;
+            break;
         }
-        if(parity){
-            errorpos += pos;
-        }
+
+    if(pos!=-1){
+        cout<<"Error found at pos "<<pos<<endl;
+        recived[pos]=sent[pos];
+        cout<<"Corrected frame :- "<<recived;
     }
-    if(errorpos == 0) cout<<"No error";
-    else{
-        cout<<"Error dected at pos"<<errorpos<<endl;
-        recv[errorpos] ^= 1;
-        cout<<"Corrected frame \n";
-        for(int i =n ; i>=1; i--)cout<<recv[i];
-    }
-    
+    else cout<<"No error found";
+
     return 0;
-    
 }
+ 
 -------------------------------------------------------------------------------------------------------------------------------------------------------
 5 tcpserver.cpp
 
@@ -278,7 +273,7 @@ int main() {
         string msg = "file not found";
 
         send(c, msg.c_str(), msg.size(), 0);
-    }
+    }   
 
     close(c);
     close(s);
@@ -327,70 +322,55 @@ int main(){
 gbn_server
 
 
-#include <iostream>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-
+#include<iostream>
+#include<unistd.h>
+#include<sys/socket.h>
+#include<arpa/inet.h>
 using namespace std;
 
-int main() {
-    int s = socket(AF_INET, SOCK_STREAM, 0);
-
+int main(){
+    int s=socket(AF_INET,SOCK_STREAM,0);
     sockaddr_in a{};
-    a.sin_family = AF_INET;
-    a.sin_port = htons(8080);
-    a.sin_addr.s_addr = INADDR_ANY;
+    a.sin_family=AF_INET;
+    a.sin_port=htons(8080);
+    a.sin_addr.s_addr=INADDR_ANY;
 
-    bind(s, (sockaddr*)&a, sizeof(a));
-    listen(s, 1);
+    bind(s,(sockaddr*)&a,sizeof(a));
+    listen(s,1);
 
-    cout << "Waiting for sender...\n";
-    int c = accept(s, NULL, NULL);
+    cout<<"Waiting...\n";
+    int c=accept(s,NULL,NULL);
 
-    int lost, n, w;
+    int n,w,lost;
+    recv(c,&n,sizeof(n),MSG_WAITALL);
+    recv(c,&w,sizeof(w),MSG_WAITALL);
+    recv(c,&lost,sizeof(lost),MSG_WAITALL);
 
-    cout << "Enter frame number to simulate loss (-1 for none): ";
-    cin >> lost;
+    int expected=1, dropped=0;
 
-    recv(c, &n, sizeof(n), MSG_WAITALL);
-    recv(c, &w, sizeof(w), MSG_WAITALL);
+    while(expected<=n){
+        int count;
+        recv(c,&count,4,MSG_WAITALL);
 
-    int expected = 0;
+        for(int i=0;i<count;i++){
+            int f;
+            recv(c,&f,4,MSG_WAITALL);
 
-    while (expected < n) {
-        int frame;
-
-        if (recv(c, &frame, sizeof(frame), MSG_WAITALL) <= 0)
-            break;
-
-        if (frame == lost) {
-            cout << "Frame " << frame << " lost!\n";
-            lost = -1;
-
-            int ack = expected - 1;
-            send(c, &ack, sizeof(ack), 0);
-            cout << "Duplicate ACK " << ack << " sent\n";
-            continue;
+            if(f==lost && !dropped){
+                cout<<"Frame "<<f<<" lost\n";
+                dropped=1;
+            }
+            else if(f==expected){
+                cout<<"Frame "<<f<<" received\n";
+                expected++;
+            }
+            else
+                cout<<"Frame "<<f<<" discarded\n";
         }
 
-        if (frame == expected) {
-            cout << "Frame " << frame
-                 << " received correctly\n";
-
-            int ack = expected;
-            expected++;
-
-            send(c, &ack, sizeof(ack), 0);
-            cout << "ACK " << ack << " sent\n";
-        } else {
-            cout << "Frame " << frame
-                 << " discarded (out of order)\n";
-
-            int ack = expected - 1;
-            send(c, &ack, sizeof(ack), 0);
-            cout << "Duplicate ACK " << ack << " sent\n";
-        }
+        int ack=expected-1;
+        cout<<"ACK "<<ack<<endl;
+        send(c,&ack,4,0);
     }
 
     close(c);
@@ -398,128 +378,65 @@ int main() {
     return 0;
 }
 
+
 gbn_client
 
 
-#include <iostream>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
 
+#include<iostream>
+#include<unistd.h>
+#include<sys/socket.h>
+#include<arpa/inet.h>
 using namespace std;
 
-int main() {
-    int s = socket(AF_INET, SOCK_STREAM, 0);
-
+int main(){
+    int c=socket(AF_INET,SOCK_STREAM,0);
     sockaddr_in a{};
-    a.sin_family = AF_INET;
-    a.sin_port = htons(8080);
-    a.sin_addr.s_addr = inet_addr("127.0.0.1");
+    a.sin_family=AF_INET;
+    a.sin_port=htons(8080);
+    a.sin_addr.s_addr=inet_addr("127.0.0.1");
 
-    if (connect(s, (sockaddr*)&a, sizeof(a)) < 0) {
-        cout << "Connection failed\n";
-        close(s);
-        return 1;
+    connect(c,(sockaddr*)&a,sizeof(a));
+
+    int n,w,lost;
+    cout<<"Enter frames, window size and lost frame: ";
+    cin>>n>>w>>lost;
+
+    send(c,&n,4,0);
+    send(c,&w,4,0);
+    send(c,&lost,4,0);
+
+    int base=1;
+
+    while(base<=n){
+        int count=min(w,n-base+1);
+        send(c,&count,4,0);
+
+        for(int i=base;i<base+count;i++){
+            cout<<"Sending frame "<<i<<endl;
+            send(c,&i,4,0);
+        }
+
+        int ack;
+        recv(c,&ack,4,MSG_WAITALL);
+        cout<<"ACK received: "<<ack<<endl;
+
+        base=ack+1;
     }
 
-    int n, w;
-
-    cout << "Enter number of frames: ";
-    cin >> n;
-
-    cout << "Enter window size: ";
-    cin >> w;
-
-    if (n <= 0 || w <= 0) {
-        cout << "Invalid input\n";
-        close(s);
-        return 1;
-    }
-
-    send(s, &n, sizeof(n), 0);
-    send(s, &w, sizeof(w), 0);
-
-    int base = 0;
-
-    while (base < n) {
-        int end = min(base + w, n);
-
-        // Send all frames in the current window
-        for (int i = base; i < end; i++) {
-            send(s, &i, sizeof(i), 0);
-            cout << "Frame " << i << " sent\n";
-        }
-
-        // Receive ACK responses for this window
-        int highestAck = base - 1;
-
-        for (int i = base; i < end; i++) {
-            int ack;
-
-            if (recv(s, &ack, sizeof(ack), MSG_WAITALL) <= 0) {
-                cout << "Connection closed\n";
-                close(s);
-                return 1;
-            }
-
-            cout << "ACK " << ack << " received\n";
-
-            if (ack > highestAck)
-                highestAck = ack;
-        }
-
-        // Advance the window using cumulative ACKs
-        if (highestAck >= base) {
-            base = highestAck + 1;
-        }
-
-        // Go back and retransmit unacknowledged frames
-        while (base < end) {
-            cout << "\nGo-Back-N: Retransmitting from Frame "
-                 << base << endl;
-
-            int retransmitEnd = end;
-
-            for (int i = base; i < retransmitEnd; i++) {
-                send(s, &i, sizeof(i), 0);
-                cout << "Frame " << i << " retransmitted\n";
-            }
-
-            highestAck = base - 1;
-
-            for (int i = base; i < retransmitEnd; i++) {
-                int ack;
-
-                if (recv(s, &ack, sizeof(ack), MSG_WAITALL) <= 0) {
-                    close(s);
-                    return 1;
-                }
-
-                cout << "ACK " << ack << " received\n";
-
-                if (ack > highestAck)
-                    highestAck = ack;
-            }
-
-            if (highestAck >= base)
-                base = highestAck + 1;
-        }
-    }
-
-    cout << "\nAll frames transmitted successfully\n";
-
-    close(s);
+    cout<<"All frames sent\n";
+    close(c);
     return 0;
 }
+
 
 ---------------------------------------------------------------------------------------------------------------------------------
 7    fifo server 
 #include <iostream>
+#include <fstream>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <cstring>
-
 using namespace std;
 
 #define FIFO_NAME "myfifo"
@@ -528,49 +445,36 @@ int main()
 {
     char buffer[1024];
 
-    // Create FIFO
     mkfifo(FIFO_NAME, 0666);
 
-    // Open file to be transferred
-    int file = open("input.txt", O_RDONLY);
-
-    if (file == -1)
-    {
-        perror("Error opening input.txt");
-        return 1;
-    }
+    ifstream file("input.txt");
 
     cout << "Server: Waiting for client..." << endl;
 
-    // Open FIFO for writing
     int fifo = open(FIFO_NAME, O_WRONLY);
 
     cout << "Server: Sending file..." << endl;
 
-    int bytes;
+    while (file.read(buffer, sizeof(buffer)) || file.gcount() > 0)
+        write(fifo, buffer, file.gcount());
 
-    // Read file and send through FIFO
-    while ((bytes = read(file, buffer, sizeof(buffer))) > 0)
-    {
-        write(fifo, buffer, bytes);
-    }
+    cout << "File sent successfully";
 
-    cout << "Server: File transferred successfully." << endl;
-
-    close(file);
+    file.close();
     close(fifo);
 
     return 0;
 }
+
 
 
  clinet.cpp
 
 
 #include <iostream>
+#include <fstream>
 #include <fcntl.h>
 #include <unistd.h>
-
 using namespace std;
 
 #define FIFO_NAME "myfifo"
@@ -579,149 +483,106 @@ int main()
 {
     char buffer[1024];
 
-    cout << "Client: Connecting to server..." << endl;
+    cout << "Client: Connecting..." << endl;
 
-    // Open FIFO for reading
     int fifo = open(FIFO_NAME, O_RDONLY);
 
-    if (fifo == -1)
-    {
-        perror("Error opening FIFO");
+    if (fifo == -1) {
+        cout << "FIFO error";
         return 1;
     }
 
-    // Create destination file
-    int file = open("received.txt",
-                    O_WRONLY | O_CREAT | O_TRUNC,
-                    0666);
-
-    if (file == -1)
-    {
-        perror("Error creating received.txt");
-        return 1;
-    }
+    ofstream file("received.txt");
 
     cout << "Client: Receiving file..." << endl;
 
     int bytes;
 
-    // Read from FIFO and write to file
     while ((bytes = read(fifo, buffer, sizeof(buffer))) > 0)
-    {
-        write(file, buffer, bytes);
-    }
+        file.write(buffer, bytes);
 
-    cout << "Client: File received successfully." << endl;
+    cout << "File received successfully";
 
+    file.close();
     close(fifo);
-    close(file);
 
     return 0;
 }
 -------------------------------------------------------------------------------------------------------------------
 8 udp server.cpp
 
-
-#include <iostream>
-#include <fstream>
-#include <cstring>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-
+#include<iostream>
+#include<fstream>
+#include<unistd.h>
+#include<sys/socket.h>
+#include<arpa/inet.h>
 using namespace std;
 
-int main()
-{
-    int sockfd;
-    char buffer[1024];
-
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+int main(){
+    int s = socket(AF_INET, SOCK_DGRAM, 0);
 
     sockaddr_in server{}, client{};
     server.sin_family = AF_INET;
     server.sin_port = htons(8080);
     server.sin_addr.s_addr = INADDR_ANY;
 
-    bind(sockfd, (sockaddr*)&server, sizeof(server));
+    bind(s, (sockaddr*)&server, sizeof(server));
 
+    char filename[100] = {};
     socklen_t len = sizeof(client);
-    ofstream file("received.txt", ios::binary);
 
-    cout << "Server waiting for file..." << endl;
+    cout<<"Server waiting...\n";
 
-    while (true)
-    {
-        int n = recvfrom(sockfd, buffer, sizeof(buffer), 0,
-                         (sockaddr*)&client, &len);
+    int n = recvfrom(s, filename, sizeof(filename)-1, 0,
+                     (sockaddr*)&client, &len);
 
-        if (n >= 0)
-            continue;
+    filename[n] = '\0';
 
-	if (n == 3 && memcmp(buffer, "END", 3) == 0)
-            break;
+    ifstream in(filename);
+    ofstream out("received.txt");
 
-
-        file.write(buffer, n);
+    if(in && out){
+        out << in.rdbuf();
+	
+        cout<<"File copied successfully";
+    }
+    else{
+        cout<<"File not found";
     }
 
-    file.close();
-    cout << "File received successfully!" << endl;
-
-    close(sockfd);
+    close(s);
     return 0;
 }
 
+
 udp client.cpp
 
-
-#include <iostream>
-#include <fstream>
-#include <cstring>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-
+#include<iostream>
+#include<string>
+#include<unistd.h>
+#include<sys/socket.h>
+#include<arpa/inet.h>
 using namespace std;
 
-int main()
-{
-    int sockfd;
-    char buffer[1024];
-
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+int main(){
+    int c = socket(AF_INET, SOCK_DGRAM, 0);
 
     sockaddr_in server{};
     server.sin_family = AF_INET;
     server.sin_port = htons(8080);
     server.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    ifstream file("input.txt", ios::binary);
+    string filename;
+    cout<<"Enter file name\n";
+    cin>>filename;
 
-    if (!file)
-    {
-        cout << "Cannot open input.txt" << endl;
-        close(sockfd);
-        return 1;
-    }
-
-    cout << "Sending file..." << endl;
-
-    while (file.read(buffer, sizeof(buffer)) || file.gcount() > 0)
-    {
-        sendto(sockfd, buffer, file.gcount(), 0,
-               (sockaddr*)&server, sizeof(server));
-    }
-
-    sendto(sockfd, "END", 3, 0,
+    sendto(c, filename.c_str(), filename.length(), 0,
            (sockaddr*)&server, sizeof(server));
 
-    cout << "File sent successfully!" << endl;
-
-    file.close();
-    close(sockfd);
+    close(c);
     return 0;
 }
+
 
 -----------------------------------------------------------------------------------------------------------------------
 9 leaky bucket
@@ -781,17 +642,16 @@ int main() {
 10 dns_server.cpp
 
 
+
 #include <iostream>
-#include <string>
+#include <map>
 #include <cstring>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-
 using namespace std;
 
 int main() {
-
     int s = socket(AF_INET, SOCK_STREAM, 0);
 
     sockaddr_in sock{};
@@ -800,42 +660,37 @@ int main() {
     sock.sin_addr.s_addr = INADDR_ANY;
 
     bind(s, (sockaddr*)&sock, sizeof(sock));
-
     listen(s, 1);
 
-    cout << "DNS Server is waiting.....\n";
+    map<string,string> dns = {
+        {"google.com", "142.250.183.14"},
+        {"youtube.com", "142.250.190.78"},
+        {"example.com", "93.184.216.34"}
+    };
 
-    int c = accept(s, nullptr, nullptr);
+    cout << "DNS Server waiting...\n";
+
+    int c = accept(s, NULL, NULL);
 
     char buff[100] = {};
+    recv(c, buff, sizeof(buff), 0);
 
-    int n = recv(c, buff, sizeof(buff) - 1, 0);
+    string domain = buff;
+    string ip = "Domain not found";
 
-    if (n > 0) {
-        buff[n] = '\0';
+    if (dns.count(domain))
+        ip = dns[domain];
 
-        string ip;
+    send(c, ip.c_str(), ip.size()+1, 0);
 
-        if (strcmp(domain, "google.com") == 0)
-            ip = "142.250.183.14";
-        else if (strcmp(domain, "youtube.com") == 0)
-            ip = "142.250.190.78";
-        else if (strcmp(domain, "example.com") == 0)
-            ip = "93.184.216.34";
-        else
-            ip = "Domain not found";
-
-        send(c, ip.c_str(), ip.size() + 1, 0);
-
-        cout << "Domain: " << domain << endl;
-        cout << "IP Address: " << ip << endl;
-    }
+    cout << "Domain: " << domain << endl;
+    cout << "IP: " << ip << endl;
 
     close(c);
     close(s);
-
     return 0;
 }
+
 
 
 dns_client.cpp
@@ -1066,17 +921,18 @@ $ns duplex-link $n(3) $n(4) 0.5Mb 10ms DropTail
 $ns duplex-link $n(3) $n(5) 0.5Mb 10ms DropTail
 $ns queue-limit $n(2) $n(3) 10
 
-foreach pair {{0 4} {1 5}} {
-    set src [lindex $pair 0]
-    set dst [lindex $pair 1]
-    set p($src) [new Agent/Ping]
-    set p($dst) [new Agent/Ping]
-    $ns attach-agent $n($src) $p($src)
-    $ns attach-agent $n($dst) $p($dst)
-    $p($src) set packetSize_ 500
-    $p($src) set interval_ 0.05
-    $ns connect $p($src) $p($dst)
-}
+set p(0) [new Agent/Ping]
+set p(4) [new Agent/Ping]
+$ns attach-agent $n(0) $p(0)
+$ns attach-agent $n(4) $p(4)
+$ns connect $p(0) $p(4)
+
+set p(1) [new Agent/Ping]
+set p(5) [new Agent/Ping]
+$ns attach-agent $n(1) $p(1)
+$ns attach-agent $n(5) $p(5)
+$ns connect $p(1) $p(5)
+
 Agent/Ping instproc recv {from rtt} {
     puts "Ping reply received from $from, RTT = $rtt ms"
 }
@@ -1137,7 +993,7 @@ set n1 [$ns node]
 set n2 [$ns node]
 set n3 [$ns node]
 $ns make-lan "$n0 $n1 $n2 $n3" 10Mb 10ms LL Queue/DropTail Mac/802_3
-
+  
 # TCP flow n0 -> n3
 set tcp0 [new Agent/TCP]
 $ns attach-agent $n0 $tcp0
@@ -1190,8 +1046,16 @@ $ns run
 lab4.awk
 ==============================================================================
 
-# Extract time and congestion-window value from an NS2 TCP trace file.
-$6 == "cwnd_" { printf("%f\t%f\n", $1, $7) }
+BEGIN {
+#include<stdio.h>
+}
+{
+if($6 == "cwmd_")
+printf("%f\t %f\n",$1,$7);
+}
+END {
+puts "done"
+}
 
 
 ==============================================================================
@@ -1251,7 +1115,7 @@ $ns run
 lab5.awk
 ==============================================================================
 
-# Classic NS2 trace: sum received packet bytes at destination node 5.
+
 BEGIN { bytes = 0; first = -1; last = 0 }
 $1 == "r" && $4 == "5" && $5 == "cbr" {
     if (first < 0) first = $2
